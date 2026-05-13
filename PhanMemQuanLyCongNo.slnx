@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="PhanMemQuanLyCongNo.Application/PhanMemQuanLyCongNo.Application.csproj" />
+  <Project Path="PhanMemQuanLyCongNo.Domain/PhanMemQuanLyCongNo.Domain.csproj" />
+  <Project Path="PhanMemQuanLyCongNo.Infrastructure/PhanMemQuanLyCongNo.Infrastructure.csproj" />
+  <Project Path="PhanMemQuanLyCongNo.Api/PhanMemQuanLyCongNo.Api.csproj" />
+</Solution>

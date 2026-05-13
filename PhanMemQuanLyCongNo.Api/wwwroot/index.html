@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quản lý công nợ</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">CN</span>
+            <div>
+                <strong>DebtOps</strong>
+                <small>SaaS Multi-tenant</small>
+            </div>
+        </div>
+        <nav>
+            <a class="active" href="#dashboard">Dashboard</a>
+            <a href="#debts">Công nợ</a>
+            <a href="#customers">Khách hàng</a>
+            <a href="#alerts">Cảnh báo</a>
+            <a href="#audit">Audit log</a>
+        </nav>
+        <section class="tenant-card">
+            <span>Tenant</span>
+            <strong>Công ty Tài chính Pacific</strong>
+            <small>Plan Pro · Active</small>
+        </section>
+    </aside>
+
+    <main class="shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Phần mềm quản lý công nợ</p>
+                <h1>Theo dõi thu/chi và cảnh báo nợ</h1>
+            </div>
+            <div class="actions">
+                <button id="refreshBtn" class="secondary">Làm mới</button>
+                <button id="openCreateDebt">Tạo khoản nợ</button>
+            </div>
+        </header>
+
+        <section id="dashboard" class="kpi-grid">
+            <article class="kpi">
+                <span>Tổng dư nợ</span>
+                <strong id="totalReceivable">0</strong>
+                <small>Remaining amount</small>
+            </article>
+            <article class="kpi warning">
+                <span>Nợ quá hạn</span>
+                <strong id="overdueAmount">0</strong>
+                <small id="overdueCount">0 khoản</small>
+            </article>
+            <article class="kpi success">
+                <span>Đã thu</span>
+                <strong id="totalPaid">0</strong>
+                <small id="collectionRate">0%</small>
+            </article>
+            <article class="kpi info">
+                <span>Sắp đến hạn</span>
+                <strong id="dueSoonCount">0</strong>
+                <small>D-7 đến D-0</small>
+            </article>
+        </section>
+
+        <section class="insights">
+            <article>
+                <div class="section-title">
+                    <h2>Phân bổ trạng thái</h2>
+                    <span>Realtime theo TenantId</span>
+                </div>
+                <div id="statusBars" class="bars"></div>
+            </article>
+            <article>
+                <div class="section-title">
+                    <h2>Khách hàng rủi ro</h2>
+                    <span>Credit scoring</span>
+                </div>
+                <div id="riskList" class="risk-list"></div>
+            </article>
+        </section>
+
+        <section id="debts" class="panel">
+            <div class="section-title">
+                <div>
+                    <h2>Danh sách công nợ</h2>
+                    <span>Lọc theo tên, SĐT, hợp đồng hoặc trạng thái</span>
+                </div>
+                <div class="filters">
+                    <input id="searchInput" placeholder="Tìm khách hàng, SĐT, hợp đồng">
+                    <select id="statusFilter">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="Active">Active</option>
+                        <option value="DueSoon">DueSoon</option>
+                        <option value="Overdue">Overdue</option>
+                        <option value="PartialPaid">PartialPaid</option>
+                        <option value="Paid">Paid</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Khách hàng</th>
+                            <th>Hợp đồng</th>
+                            <th>Đến hạn</th>
+                            <th>Dư nợ</th>
+                            <th>Risk</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="debtRows"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="alerts" class="insights">
+            <article>
+                <div class="section-title">
+                    <h2>Cảnh báo nợ</h2>
+                    <span>Overdue và DueSoon</span>
+                </div>
+                <div id="alertList" class="timeline"></div>
+            </article>
+            <article>
+                <div class="section-title">
+                    <h2>Thông báo đã gửi</h2>
+                    <span>Email/SMS/In-app</span>
+                </div>
+                <div id="notificationList" class="timeline"></div>
+            </article>
+        </section>
+    </main>
+
+    <dialog id="debtDialog">
+        <form method="dialog" class="dialog-body">
+            <div class="section-title">
+                <h2>Tạo khoản nợ</h2>
+                <button class="icon" value="cancel" aria-label="Đóng">×</button>
+            </div>
+            <label>
+                Hợp đồng
+                <select id="contractSelect"></select>
+            </label>
+            <label>
+                Số tiền gốc
+                <input id="principalInput" type="number" min="100000" step="100000" value="12000000">
+            </label>
+            <div class="form-grid">
+                <label>
+                    Lãi phạt / tháng (%)
+                    <input id="penaltyRateInput" type="number" min="0" step="0.1" value="2.5">
+                </label>
+                <label>
+                    Phí nhắc nợ
+                    <input id="reminderFeeInput" type="number" min="0" step="1000" value="20000">
+                </label>
+            </div>
+            <div class="form-grid">
+                <label>
+                    Ngày phát sinh
+                    <input id="issuedDateInput" type="date">
+                </label>
+                <label>
+                    Ngày đến hạn
+                    <input id="dueDateInput" type="date">
+                </label>
+            </div>
+            <label>
+                Ghi chú
+                <textarea id="noteInput" rows="3">Khoản nợ phát sinh từ hợp đồng vay.</textarea>
+            </label>
+            <button id="createDebtBtn" value="default">Lưu khoản nợ</button>
+        </form>
+    </dialog>
+
+    <script src="/app.js"></script>
+</body>
+</html>
