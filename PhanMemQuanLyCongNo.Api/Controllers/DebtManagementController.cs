@@ -11,6 +11,46 @@ public sealed class DebtManagementController(IDebtManagementService service) : C
     [HttpGet("users")]
     public IActionResult GetUsers() => Ok(service.GetUsers(GetTenantId()));
 
+    [HttpPost("users")]
+    public IActionResult CreateUser(CreateUserRequest request)
+    {
+        try
+        {
+            return Created("", service.CreateUser(GetTenantId(), request));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("users/{userId:guid}")]
+    public IActionResult UpdateUser(Guid userId, UpdateUserRequest request)
+    {
+        try
+        {
+            return Ok(service.UpdateUser(GetTenantId(), userId, request));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("users/{userId:guid}")]
+    public IActionResult DeleteUser(Guid userId)
+    {
+        try
+        {
+            service.DeleteUser(GetTenantId(), userId);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpGet("customers")]
     public IActionResult GetCustomers([FromQuery] string? search) =>
         Ok(service.GetCustomers(GetTenantId(), search));

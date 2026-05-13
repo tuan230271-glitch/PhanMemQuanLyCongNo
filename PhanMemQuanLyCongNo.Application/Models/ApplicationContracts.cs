@@ -83,3 +83,5 @@ public sealed record CreatePaymentRequest(decimal Amount, string Method, string 
 public sealed record CreateTaskRequest(Guid DebtId, Guid AssignedTo, DateOnly DueDate, string Note);
 public sealed record SendReminderRequest(string Channel);
 public sealed record LoginRequest(string Email, string Password);
+public sealed record CreateUserRequest(string FullName, string Email, UserRole Role, bool IsActive);
+public sealed record UpdateUserRequest(string FullName, string Email, UserRole Role, bool IsActive);

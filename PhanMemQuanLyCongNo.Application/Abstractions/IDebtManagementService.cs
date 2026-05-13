@@ -10,6 +10,9 @@ public interface IDebtManagementService
     Guid ResolveTenant(string? tenantId);
     IReadOnlyCollection<Tenant> GetTenants();
     IReadOnlyCollection<AppUser> GetUsers(Guid tenantId);
+    AppUser CreateUser(Guid tenantId, CreateUserRequest request);
+    AppUser UpdateUser(Guid tenantId, Guid userId, UpdateUserRequest request);
+    void DeleteUser(Guid tenantId, Guid userId);
     object Login(LoginRequest request);
     IReadOnlyCollection<KhachHang> GetCustomers(Guid tenantId, string? search);
     KhachHang CreateCustomer(Guid tenantId, CreateCustomerRequest request);

@@ -44,7 +44,58 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
     public IReadOnlyCollection<Tenant> GetTenants() => _tenants;
 
     public IReadOnlyCollection<AppUser> GetUsers(Guid tenantId) =>
-        _users.Where(u => u.TenantId == tenantId || u.Role == UserRole.SuperAdmin).ToArray();
+        _users
+            .Where(u => u.TenantId == tenantId || u.Role == UserRole.SuperAdmin)
+            .OrderBy(u => u.Role)
+            .ThenBy(u => u.FullName)
+            .ToArray();
+
+    public AppUser CreateUser(Guid tenantId, CreateUserRequest request)
+    {
+        ValidateUserRequest(tenantId, request.FullName, request.Email, request.Role);
+
+        var user = new AppUser(Guid.NewGuid(), tenantId, request.FullName.Trim(), request.Email.Trim(), request.Role, request.IsActive);
+        _users.Add(user);
+        AddAudit(tenantId, "TenantAdmin", "Create", "User");
+        return user;
+    }
+
+    public AppUser UpdateUser(Guid tenantId, Guid userId, UpdateUserRequest request)
+    {
+        var index = _users.FindIndex(u => u.Id == userId && u.TenantId == tenantId);
+        if (index < 0)
+        {
+            throw new InvalidOperationException("Nguoi dung khong ton tai.");
+        }
+
+        ValidateUserRequest(tenantId, request.FullName, request.Email, request.Role, userId);
+
+        var current = _users[index];
+        var updated = current with
+        {
+            FullName = request.FullName.Trim(),
+            Email = request.Email.Trim(),
+            Role = request.Role,
+            IsActive = request.IsActive
+        };
+        _users[index] = updated;
+        AddAudit(tenantId, "TenantAdmin", "Update", "User");
+        return updated;
+    }
+
+    public void DeleteUser(Guid tenantId, Guid userId)
+    {
+        var user = _users.FirstOrDefault(u => u.Id == userId && u.TenantId == tenantId)
+            ?? throw new InvalidOperationException("Nguoi dung khong ton tai.");
+
+        if (_tasks.Any(t => t.TenantId == tenantId && t.AssignedTo == userId))
+        {
+            throw new InvalidOperationException("Nguoi dung da duoc gan cong viec, hay khoa tai khoan thay vi xoa.");
+        }
+
+        _users.Remove(user);
+        AddAudit(tenantId, "TenantAdmin", "Delete", "User");
+    }
 
     public object Login(LoginRequest request)
     {
@@ -312,6 +363,32 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
     private void AddAudit(Guid tenantId, string userName, string action, string entity)
     {
         _auditLogs.Add(new AuditLog(Guid.NewGuid(), tenantId, userName, action, entity, DateTime.UtcNow, "127.0.0.1"));
+    }
+
+    private void ValidateUserRequest(Guid tenantId, string fullName, string email, UserRole role, Guid? userId = null)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            throw new InvalidOperationException("Ho ten nguoi dung la bat buoc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@', StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Email khong hop le.");
+        }
+
+        if (role == UserRole.SuperAdmin)
+        {
+            throw new InvalidOperationException("Khong the tao hoac sua SuperAdmin tu man hinh tenant.");
+        }
+
+        if (_users.Any(u =>
+                u.TenantId == tenantId &&
+                u.Id != userId &&
+                u.Email.Equals(email.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("Email da ton tai trong tenant.");
+        }
     }
 
     private void Seed()
