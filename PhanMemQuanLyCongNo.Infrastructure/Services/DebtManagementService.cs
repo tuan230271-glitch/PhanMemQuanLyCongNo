@@ -1,13 +1,17 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using PhanMemQuanLyCongNo.Application.Abstractions;
 using PhanMemQuanLyCongNo.Application.Models;
 using PhanMemQuanLyCongNo.Domain.Entities;
 using PhanMemQuanLyCongNo.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+using PhanMemQuanLyCongNo.Infrastructure.Persistence.DbContext;
 
 namespace PhanMemQuanLyCongNo.Infrastructure.Services;
 
-public sealed class InMemoryDebtManagementService : IDebtManagementService
+public class DebtManagementService : IDebtManagementService
 {
+    private readonly ApplicationDbContext _context;
+    private readonly JwtTokenService _jwtTokenService;
     private readonly List<Tenant> _tenants = [];
     private readonly List<AppUser> _users = [];
     private readonly List<KhachHang> _customers = [];
@@ -19,13 +23,15 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
     private readonly List<AuditLog> _auditLogs = [];
     private readonly ConcurrentDictionary<string, Guid> _tenantAliases = new(StringComparer.OrdinalIgnoreCase);
 
-    public InMemoryDebtManagementService()
+    public DebtManagementService(
+        ApplicationDbContext context,
+        JwtTokenService jwtTokenService)
     {
-        Seed();
+        _context = context;
+        _jwtTokenService = jwtTokenService;
     }
-
-    public Guid DefaultTenantId => _tenants[0].Id;
-
+    public Guid DefaultTenantId =>
+        _tenants.FirstOrDefault()?.Id ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
     public Guid ResolveTenant(string? tenantId)
     {
         if (Guid.TryParse(tenantId, out var parsed) && _tenants.Any(t => t.Id == parsed))
@@ -102,32 +108,46 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
 
     public object Login(LoginRequest request)
     {
-        var user = _users.FirstOrDefault(u => u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase) && u.IsActive)
-            ?? _users.First(u => u.Role == UserRole.Operator);
+        var user = _context.Users
+            .FirstOrDefault(u =>
+                u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase)
+                && u.IsActive);
+
+        if (user is null)
+        {
+            throw new InvalidOperationException("Sai tài khoản hoặc mật khẩu.");
+        }
+
+        var accessToken = _jwtTokenService.CreateToken(user);
 
         return new
         {
-            accessToken = Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            accessToken,
+
             refreshToken = Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+
             user,
+
             tenant = _tenants.FirstOrDefault(t => t.Id == user.TenantId)
         };
     }
-
     public IReadOnlyCollection<KhachHang> GetCustomers(Guid tenantId, string? search)
     {
-        var query = _customers.Where(c => c.TenantId == tenantId);
+        var query = _context.KhachHangs
+            .Where(c => c.TenantId == tenantId);
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = query.Where(c =>
-                c.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                c.Phone.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                c.CitizenId.Contains(search, StringComparison.OrdinalIgnoreCase));
+                c.Name.Contains(search) ||
+                c.Phone.Contains(search) ||
+                c.CitizenId.Contains(search));
         }
 
-        return query.OrderByDescending(c => c.RiskScore).ToArray();
+        return query
+            .OrderByDescending(c => c.RiskScore)
+            .ToArray();
     }
-
     public KhachHang CreateCustomer(Guid tenantId, CreateCustomerRequest request)
     {
         var customer = new KhachHang
@@ -140,35 +160,43 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
             CitizenId = request.CitizenId,
             RiskScore = Random.Shared.Next(18, 88)
         };
-        _customers.Add(customer);
-        AddAudit(tenantId, "Operator", "Create", "Customer");
+        _context.KhachHangs.Add(customer);
+        _context.SaveChanges(); AddAudit(tenantId, "Operator", "Create", "Customer");
         return customer;
     }
 
     public IReadOnlyCollection<Contract> GetContracts(Guid tenantId) =>
-        _contracts.Where(c => c.TenantId == tenantId).OrderByDescending(c => c.StartDate).ToArray();
-
-    public IReadOnlyCollection<object> GetDebts(Guid tenantId, string? search, string? status, DateOnly? from, DateOnly? to, int page, int pageSize)
+        _context.Contracts
+            .Where(c => c.TenantId == tenantId)
+            .OrderByDescending(c => c.StartDate)
+            .ToArray();
+    public IReadOnlyCollection<object> GetDebts(
+        Guid tenantId,
+        string? search,
+        string? status,
+        DateOnly? from,
+        DateOnly? to,
+        int page,
+        int pageSize)
     {
-        RefreshDebtStatuses();
         var query =
-            from debt in _debts
-            join contract in _contracts on debt.ContractId equals contract.Id
-            join customer in _customers on contract.CustomerId equals customer.Id
+            from debt in _context.CongNos
+            join contract in _context.Contracts on debt.ContractId equals contract.Id
+            join customer in _context.KhachHangs on contract.CustomerId equals customer.Id
             where debt.TenantId == tenantId
             select new { debt, contract, customer };
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = query.Where(x =>
-                x.customer.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                x.customer.Phone.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                x.contract.Code.Contains(search, StringComparison.OrdinalIgnoreCase));
+                x.customer.Name.Contains(search) ||
+                x.customer.Phone.Contains(search) ||
+                x.contract.Code.Contains(search));
         }
 
-        if (status is not null)
+        if (!string.IsNullOrWhiteSpace(status))
         {
-            query = query.Where(x => x.debt.Status == status);
+            query = query.Where(x => x.debt.Status.ToString() == status);
         }
 
         if (from is not null)
@@ -206,16 +234,21 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
             })
             .ToArray();
     }
-
     public CongNo CreateDebt(Guid tenantId, CreateDebtRequest request)
     {
-        if (!_contracts.Any(c => c.Id == request.ContractId && c.TenantId == tenantId && !c.IsClosed))
+        var contractExists = _context.Contracts.Any(c =>
+            c.Id == request.ContractId &&
+            c.TenantId == tenantId &&
+            !c.IsClosed);
+
+        if (!contractExists)
         {
             throw new InvalidOperationException("Hop dong khong ton tai hoac da dong.");
         }
 
         var debt = new CongNo
         {
+            Id = Guid.NewGuid(),
             TenantId = tenantId,
             ContractId = request.ContractId,
             PrincipalAmount = request.PrincipalAmount,
@@ -226,15 +259,19 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
             Note = request.Note ?? "",
             Status = TrangThaiCongNo.Active
         };
+
         debt.RefreshStatus();
-        _debts.Add(debt);
+
+        _context.CongNos.Add(debt);
+        _context.SaveChanges();
+
         AddAudit(tenantId, "Operator", "Create", "Debt");
+
         return debt;
     }
-
     public ThanhToan AddPayment(Guid tenantId, Guid debtId, CreatePaymentRequest request)
     {
-        var debt = _debts.FirstOrDefault(d => d.TenantId == tenantId && d.Id == debtId)
+        var debt = _context.CongNos.FirstOrDefault(d => d.TenantId == tenantId && d.Id == debtId)
             ?? throw new InvalidOperationException("Khoan no khong ton tai.");
 
         if (request.Amount <= 0)
@@ -248,6 +285,7 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
         }
 
         debt.ApplyPayment(request.Amount);
+
         var payment = new ThanhToan
         {
             Id = Guid.NewGuid(),
@@ -258,8 +296,12 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
             PaidAt = DateTime.UtcNow,
             ReceivedBy = request.ReceivedBy
         };
-        _payments.Add(payment);
+
+        _context.ThanhToans.Add(payment);
+        _context.SaveChanges();
+
         AddAudit(tenantId, request.ReceivedBy, "Create", "Payment");
+
         return payment;
     }
 
@@ -299,11 +341,10 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
     }
 
     public IReadOnlyCollection<ThanhToan> GetPayments(Guid tenantId, Guid? debtId) =>
-        _payments
-            .Where(p => p.TenantId == tenantId && (debtId is null || p.DebtId == debtId))
+        _context.ThanhToans
+            .Where(p => p.TenantId == tenantId && (debtId == null || p.DebtId == debtId))
             .OrderByDescending(p => p.PaidAt)
             .ToArray();
-
     public IReadOnlyCollection<NotificationLog> GetNotifications(Guid tenantId) =>
         _notifications.Where(n => n.TenantId == tenantId).OrderByDescending(n => n.SentAt).ToArray();
 
@@ -312,13 +353,32 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
 
     public object GetDashboard(Guid tenantId)
     {
-        RefreshDebtStatuses();
-        var debts = _debts.Where(d => d.TenantId == tenantId).ToArray();
+        var debts = _context.CongNos
+            .Where(d => d.TenantId == tenantId)
+            .ToArray();
+
+        var payments = _context.ThanhToans
+            .Where(p => p.TenantId == tenantId)
+            .ToArray();
+
+        var customers = _context.KhachHangs
+            .Where(c => c.TenantId == tenantId)
+            .ToArray();
+
         var totalReceivable = debts.Sum(d => d.RemainingAmount);
-        var totalPaid = _payments.Where(p => p.TenantId == tenantId).Sum(p => p.Amount);
-        var overdue = debts.Where(d => d.Status == TrangThaiCongNo.Overdue).ToArray();
-        var dueSoon = debts.Where(d => d.Status == TrangThaiCongNo.DueSoon).ToArray();
-        var collectionRate = totalPaid + totalReceivable == 0 ? 0 : Math.Round(totalPaid / (totalPaid + totalReceivable) * 100, 1);
+        var totalPaid = payments.Sum(p => p.Amount);
+
+        var overdue = debts
+            .Where(d => d.Status == TrangThaiCongNo.Overdue)
+            .ToArray();
+
+        var dueSoon = debts
+            .Where(d => d.Status == TrangThaiCongNo.DueSoon)
+            .ToArray();
+
+        var collectionRate = totalPaid + totalReceivable == 0
+            ? 0
+            : Math.Round(totalPaid / (totalPaid + totalReceivable) * 100, 1);
 
         return new
         {
@@ -331,30 +391,50 @@ public sealed class InMemoryDebtManagementService : IDebtManagementService
                 dueSoonCount = dueSoon.Length,
                 collectionRate
             },
+
             statusBreakdown = debts
                 .GroupBy(d => d.Status)
-                .Select(g => new { status = g.Key.ToString(), count = g.Count(), amount = g.Sum(d => d.RemainingAmount) })
-                .OrderBy(x => x.status),
-            monthlyCollection = _payments
-                .Where(p => p.TenantId == tenantId)
+                .Select(g => new
+                {
+                    status = g.Key.ToString(),
+                    count = g.Count(),
+                    amount = g.Sum(d => d.RemainingAmount)
+                }),
+
+            monthlyCollection = payments
                 .GroupBy(p => new { p.PaidAt.Year, p.PaidAt.Month })
-                .Select(g => new { month = $"{g.Key.Month:00}/{g.Key.Year}", amount = g.Sum(p => p.Amount) })
+                .Select(g => new
+                {
+                    month = $"{g.Key.Month:00}/{g.Key.Year}",
+                    amount = g.Sum(p => p.Amount)
+                })
                 .OrderBy(x => x.month),
-            highRiskCustomers =
-                from customer in _customers
-                where customer.TenantId == tenantId && customer.RiskScore >= 65
-                orderby customer.RiskScore descending
-                select new { customer.Name, customer.Phone, customer.RiskScore },
-            upcomingAlerts =
-                from debt in debts
-                join contract in _contracts on debt.ContractId equals contract.Id
-                join customer in _customers on contract.CustomerId equals customer.Id
-                where debt.Status is TrangThaiCongNo.DueSoon or TrangThaiCongNo.Overdue
-                orderby debt.DueDate
-                select new { customer.Name, debt.RemainingAmount, debt.DueDate, debt.Status, debt.OverdueDays }
+
+            highRiskCustomers = customers
+    .Where(c => c.RiskScore >= 65)
+    .OrderByDescending(c => c.RiskScore)
+    .Select(c => new
+    {
+        c.Name,
+        c.Phone,
+        c.RiskScore
+    }),
+
+            upcomingAlerts = debts
+    .Where(d =>
+        d.Status == TrangThaiCongNo.DueSoon ||
+        d.Status == TrangThaiCongNo.Overdue)
+    .OrderBy(d => d.DueDate)
+    .Select(d => new
+    {
+        Name = "Khách hàng",
+        d.RemainingAmount,
+        d.DueDate,
+        d.Status,
+        d.OverdueDays
+    })
         };
     }
-
     private void RefreshDebtStatuses()
     {
         foreach (var debt in _debts)

@@ -16,4 +16,18 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<CongNo> Debts => Set<CongNo>();
     public DbSet<ThanhToan> Payments => Set<ThanhToan>();
+    public DbSet<KhachHang> KhachHangs => Set<KhachHang>();
+    public DbSet<CongNo> CongNos => Set<CongNo>();
+    public DbSet<ThanhToan> ThanhToans => Set<ThanhToan>();
+    public DbSet<AppUser> Users => Set<AppUser>();
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<KhachHang>().ToTable("Customers");
+        modelBuilder.Entity<CongNo>().ToTable("Debts");
+        modelBuilder.Entity<ThanhToan>().ToTable("Payments");
+        modelBuilder.Entity<Tenant>().ToTable("Tenants");
+        modelBuilder.Entity<Contract>().ToTable("Contracts");
+    }
 }

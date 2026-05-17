@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using PhanMemQuanLyCongNo.Application.Abstractions;
 using PhanMemQuanLyCongNo.Application.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api")]
+// [Authorize]
 public sealed class DebtManagementController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet("users")]
@@ -135,6 +137,22 @@ public sealed class DebtManagementController(IDebtManagementService service) : C
 
     [HttpGet("dashboard")]
     public IActionResult GetDashboard() => Ok(service.GetDashboard(GetTenantId()));
+    [HttpPost("login")]
+    [AllowAnonymous]
+    public IActionResult Login(LoginRequest request)
+    {
+        try
+        {
+            return Ok(service.Login(request));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                error = ex.Message
+            });
+        }
+    }
 
     private Guid GetTenantId() => service.ResolveTenant(Request.Headers["X-Tenant-Id"].FirstOrDefault());
 }

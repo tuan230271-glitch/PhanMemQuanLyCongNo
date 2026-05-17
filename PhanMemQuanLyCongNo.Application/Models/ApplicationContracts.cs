@@ -30,14 +30,6 @@ public enum CollectionTaskStatus
 
 public sealed record Tenant(Guid Id, string Name, string Plan, TenantStatus Status, DateTime CreatedAt);
 
-public sealed record AppUser(
-    Guid Id,
-    Guid TenantId,
-    string FullName,
-    string Email,
-    UserRole Role,
-    bool IsActive);
-
 public sealed record Contract(
     Guid Id,
     Guid TenantId,

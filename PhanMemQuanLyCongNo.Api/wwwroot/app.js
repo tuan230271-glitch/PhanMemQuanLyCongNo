@@ -208,3 +208,49 @@ loadAll().catch(error => {
     console.error(error);
     alert(error.message);
 });
+function togglePassword() {
+    const input = document.getElementById("passwordInput");
+
+    input.type =
+        input.type === "password"
+            ? "text"
+            : "password";
+}
+
+document
+    .getElementById("loginBtn")
+    .addEventListener("click", async () => {
+
+        const email =
+            document.getElementById("emailInput").value;
+
+        const password =
+            document.getElementById("passwordInput").value;
+
+        const response = await fetch("/api/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                email,
+                password
+            })
+        });
+
+        if (!response.ok) {
+            alert("Đăng nhập thất bại");
+            return;
+        }
+
+        const data = await response.json();
+
+        localStorage.setItem(
+            "token",
+            data.accessToken
+        );
+
+        document
+            .getElementById("loginScreen")
+            .style.display = "none";
+    });
