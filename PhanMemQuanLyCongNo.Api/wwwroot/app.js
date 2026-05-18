@@ -1,5 +1,5 @@
-const tenantId = "demo";
-const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
+const tenantId = "11111111-1111-1111-1111-111111111111";
+const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });ứ
 const dateFmt = new Intl.DateTimeFormat("vi-VN");
 
 const els = {
@@ -31,6 +31,7 @@ function api(path, options = {}) {
         headers: {
             "Content-Type": "application/json",
             "X-Tenant-Id": tenantId,
+            "Authorization": "Bearer " + localStorage.getItem("token"),
             ...(options.headers || {})
         }
     }).then(async response => {
@@ -204,10 +205,15 @@ els.createDebtBtn.addEventListener("click", async event => {
     await loadAll();
 });
 
-loadAll().catch(error => {
-    console.error(error);
-    alert(error.message);
-});
+if (localStorage.getItem("token")) {
+    document.body.classList.remove("login-mode");
+    document.getElementById("loginScreen").style.display = "none";
+
+    loadAll().catch(error => {
+        console.error(error);
+        alert(error.message);
+    });
+}
 function togglePassword() {
     const input = document.getElementById("passwordInput");
 
@@ -249,8 +255,15 @@ document
             "token",
             data.accessToken
         );
+        document.body.classList.remove("login-mode");
 
         document
             .getElementById("loginScreen")
             .style.display = "none";
+        await loadAll();
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+    localStorage.clear();
+    location.reload();
     });

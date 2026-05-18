@@ -21,7 +21,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<JwtTokenService>();
-builder.Services.AddScoped<IDebtManagementService, DebtManagementService>(); 
+builder.Services.AddSingleton<IDebtManagementService, InMemoryDebtManagementService>(); 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
@@ -47,9 +47,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(); 
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(); var app = builder.Build();
+var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
@@ -57,16 +57,18 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Frontend");
+
 app.UseHttpsRedirection();
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.UseAuthentication();
-app.UseAuthorization();
-app.UseSwagger();
-app.UseSwaggerUI();
 
 app.Run();

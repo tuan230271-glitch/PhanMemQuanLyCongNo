@@ -7,7 +7,7 @@ namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api")]
-// [Authorize]
+[Authorize]
 public sealed class DebtManagementController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet("users")]
@@ -65,6 +65,7 @@ public sealed class DebtManagementController(IDebtManagementService service) : C
     public IActionResult GetContracts() => Ok(service.GetContracts(GetTenantId()));
 
     [HttpGet("debts")]
+    [AllowAnonymous]
     public IActionResult GetDebts(
         [FromQuery] string? search,
         [FromQuery] string? status,
@@ -130,14 +131,15 @@ public sealed class DebtManagementController(IDebtManagementService service) : C
     }
 
     [HttpGet("notifications")]
+    [AllowAnonymous]
     public IActionResult GetNotifications() => Ok(service.GetNotifications(GetTenantId()));
-
     [HttpGet("audit-logs")]
     public IActionResult GetAuditLogs() => Ok(service.GetAuditLogs(GetTenantId()));
 
     [HttpGet("dashboard")]
+    [AllowAnonymous]
     public IActionResult GetDashboard() => Ok(service.GetDashboard(GetTenantId()));
-    [HttpPost("login")]
+     [HttpPost("login")]
     [AllowAnonymous]
     public IActionResult Login(LoginRequest request)
     {
@@ -153,6 +155,7 @@ public sealed class DebtManagementController(IDebtManagementService service) : C
             });
         }
     }
+
 
     private Guid GetTenantId() => service.ResolveTenant(Request.Headers["X-Tenant-Id"].FirstOrDefault());
 }
