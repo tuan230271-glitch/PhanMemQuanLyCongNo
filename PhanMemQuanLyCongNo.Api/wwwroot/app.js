@@ -1,5 +1,5 @@
 const tenantId = "11111111-1111-1111-1111-111111111111";
-const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });ứ
+const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const dateFmt = new Intl.DateTimeFormat("vi-VN");
 
 const els = {
@@ -174,11 +174,10 @@ async function sendReminder(id) {
 window.payDebt = payDebt;
 window.sendReminder = sendReminder;
 
-els.refreshBtn.addEventListener("click", loadAll);
-els.searchInput.addEventListener("input", () => loadDebts().catch(console.error));
-els.statusFilter.addEventListener("change", () => loadDebts().catch(console.error));
-els.openCreateDebt.addEventListener("click", async () => {
-    await loadContracts();
+els.refreshBtn?.addEventListener("click", loadAll);
+els.searchInput?.addEventListener("input", () => loadDebts().catch(console.error));
+els.statusFilter?.addEventListener("change", () => loadDebts().catch(console.error));
+els.openCreateDebt?.addEventListener("click", async () => {    await loadContracts();
     const today = new Date();
     const due = new Date();
     due.setDate(today.getDate() + 14);
@@ -187,7 +186,7 @@ els.openCreateDebt.addEventListener("click", async () => {
     els.debtDialog.showModal();
 });
 
-els.createDebtBtn.addEventListener("click", async event => {
+els.createDebtBtn?.addEventListener("click", async event => {
     event.preventDefault();
     await api("/api/debts", {
         method: "POST",
@@ -263,7 +262,44 @@ document
         await loadAll();
     });
 
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-    localStorage.clear();
-    location.reload();
-    });
+const loginBtn = document.getElementById("loginBtn");
+
+loginBtn.addEventListener("click", async function () {
+    const email = document.getElementById("emailInput").value.trim();
+    const password = document.getElementById("passwordInput").value.trim();
+
+    if (!email || !password) {
+        alert("Vui lòng nhập email và mật khẩu");
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                email: email,
+                password: password
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            alert(data.error || "Đăng nhập thất bại");
+            return;
+        }
+
+        localStorage.setItem("token", data.accessToken);
+
+        document.body.classList.remove("login-mode");
+        document.getElementById("loginScreen").style.display = "none";
+
+        await loadAll();
+    } catch (error) {
+        console.error(error);
+        alert("Không gọi được API login");
+    }
+});
