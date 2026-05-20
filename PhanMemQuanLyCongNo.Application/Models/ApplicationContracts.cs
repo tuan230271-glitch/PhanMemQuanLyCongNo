@@ -30,17 +30,6 @@ public enum CollectionTaskStatus
 
 public sealed record Tenant(Guid Id, string Name, string Plan, TenantStatus Status, DateTime CreatedAt);
 
-public sealed record Contract(
-    Guid Id,
-    Guid TenantId,
-    Guid CustomerId,
-    string Code,
-    decimal Amount,
-    decimal InterestRate,
-    DateOnly StartDate,
-    DateOnly EndDate,
-    bool IsClosed);
-
 public sealed record CollectionTask(
     Guid Id,
     Guid TenantId,
@@ -68,12 +57,3 @@ public sealed record AuditLog(
     string Entity,
     DateTime Timestamp,
     string IpAddress);
-
-public sealed record CreateCustomerRequest(string Name, string Phone, string Address, string CitizenId);
-public sealed record CreateDebtRequest(Guid ContractId, decimal PrincipalAmount, decimal PenaltyRate, decimal ReminderFee, DateOnly IssuedDate, DateOnly DueDate, string? Note);
-public sealed record CreatePaymentRequest(decimal Amount, string Method, string ReceivedBy);
-public sealed record CreateTaskRequest(Guid DebtId, Guid AssignedTo, DateOnly DueDate, string Note);
-public sealed record SendReminderRequest(string Channel);
-public sealed record LoginRequest(string Email, string Password);
-public sealed record CreateUserRequest(string FullName, string Email, UserRole Role, bool IsActive);
-public sealed record UpdateUserRequest(string FullName, string Email, UserRole Role, bool IsActive);

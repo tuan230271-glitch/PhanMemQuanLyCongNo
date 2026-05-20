@@ -5,6 +5,7 @@ using PhanMemQuanLyCongNo.Domain.Entities;
 using PhanMemQuanLyCongNo.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using PhanMemQuanLyCongNo.Infrastructure.Persistence.DbContext;
+using DomainContract = PhanMemQuanLyCongNo.Domain.Entities.Contract;
 
 namespace PhanMemQuanLyCongNo.Infrastructure.Services;
 
@@ -15,7 +16,7 @@ public class DebtManagementService : IDebtManagementService
     private readonly List<Tenant> _tenants = [];
     private readonly List<AppUser> _users = [];
     private readonly List<KhachHang> _customers = [];
-    private readonly List<Contract> _contracts = [];
+    private readonly List<DomainContract> _contracts = [];
     private readonly List<CongNo> _debts = [];
     private readonly List<ThanhToan> _payments = [];
     private readonly List<CollectionTask> _tasks = [];
@@ -165,7 +166,7 @@ public class DebtManagementService : IDebtManagementService
         return customer;
     }
 
-    public IReadOnlyCollection<Contract> GetContracts(Guid tenantId) =>
+    public IReadOnlyCollection<DomainContract> GetContracts(Guid tenantId) =>
         _context.Contracts
             .Where(c => c.TenantId == tenantId)
             .OrderByDescending(c => c.StartDate)
@@ -496,7 +497,18 @@ public class DebtManagementService : IDebtManagementService
 
         foreach (var customer in customers)
         {
-            _contracts.Add(new Contract(Guid.NewGuid(), tenant.Id, customer.Id, $"HD-{customer.Phone[^4..]}", Random.Shared.Next(30, 140) * 1_000_000m, 1.4m, DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-3)), DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(9)), false));
+            _contracts.Add(new DomainContract
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                CustomerId = customer.Id,
+                Code = $"HD-{customer.Phone[^4..]}",
+                Amount = Random.Shared.Next(30, 140) * 1_000_000m,
+                InterestRate = 1.4m,
+                StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-3)),
+                EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(9)),
+                IsClosed = false
+            });
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);

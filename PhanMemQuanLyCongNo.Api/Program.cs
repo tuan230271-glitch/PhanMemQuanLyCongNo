@@ -21,7 +21,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<JwtTokenService>();
-builder.Services.AddSingleton<IDebtManagementService, InMemoryDebtManagementService>(); 
+builder.Services.AddScoped<IDebtManagementService, DebtManagementService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>

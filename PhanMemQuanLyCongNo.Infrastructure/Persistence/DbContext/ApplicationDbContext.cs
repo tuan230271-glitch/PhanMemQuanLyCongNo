@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PhanMemQuanLyCongNo.Application.Models;
 using PhanMemQuanLyCongNo.Domain.Entities;
+using DomainContract = PhanMemQuanLyCongNo.Domain.Entities.Contract;
 
 namespace PhanMemQuanLyCongNo.Infrastructure.Persistence.DbContext;
 
@@ -12,22 +13,23 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
-    public DbSet<KhachHang> Customers => Set<KhachHang>();
-    public DbSet<Contract> Contracts => Set<Contract>();
-    public DbSet<CongNo> Debts => Set<CongNo>();
-    public DbSet<ThanhToan> Payments => Set<ThanhToan>();
+    public DbSet<DomainContract> Contracts => Set<DomainContract>();
+    public DbSet<AppUser> Users => Set<AppUser>();
+
     public DbSet<KhachHang> KhachHangs => Set<KhachHang>();
     public DbSet<CongNo> CongNos => Set<CongNo>();
     public DbSet<ThanhToan> ThanhToans => Set<ThanhToan>();
-    public DbSet<AppUser> Users => Set<AppUser>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<Tenant>().ToTable("Tenants");
+        modelBuilder.Entity<DomainContract>().ToTable("Contracts");
+        modelBuilder.Entity<AppUser>().ToTable("Users");
+
         modelBuilder.Entity<KhachHang>().ToTable("Customers");
         modelBuilder.Entity<CongNo>().ToTable("Debts");
         modelBuilder.Entity<ThanhToan>().ToTable("Payments");
-        modelBuilder.Entity<Tenant>().ToTable("Tenants");
-        modelBuilder.Entity<Contract>().ToTable("Contracts");
     }
 }
