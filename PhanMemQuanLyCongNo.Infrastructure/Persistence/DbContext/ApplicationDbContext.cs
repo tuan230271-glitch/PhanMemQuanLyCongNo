@@ -31,5 +31,23 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<KhachHang>().ToTable("Customers");
         modelBuilder.Entity<CongNo>().ToTable("Debts");
         modelBuilder.Entity<ThanhToan>().ToTable("Payments");
+
+        modelBuilder.Entity<DomainContract>(entity =>
+        {
+            entity.Property(c => c.Amount).HasPrecision(18, 2);
+            entity.Property(c => c.InterestRate).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<CongNo>(entity =>
+        {
+            entity.Property(d => d.PrincipalAmount).HasPrecision(18, 2);
+            entity.Property(d => d.PenaltyRate).HasPrecision(18, 2);
+            entity.Property(d => d.ReminderFee).HasPrecision(18, 2);
+            entity.Property(d => d.PaidAmount).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<ThanhToan>()
+            .Property(p => p.Amount)
+            .HasPrecision(18, 2);
     }
 }

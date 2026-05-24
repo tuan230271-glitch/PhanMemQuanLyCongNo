@@ -13,16 +13,11 @@ public class DebtManagementService : IDebtManagementService
 {
     private readonly ApplicationDbContext _context;
     private readonly JwtTokenService _jwtTokenService;
-    private readonly List<Tenant> _tenants = [];
-    private readonly List<AppUser> _users = [];
-    private readonly List<KhachHang> _customers = [];
-    private readonly List<DomainContract> _contracts = [];
-    private readonly List<CongNo> _debts = [];
-    private readonly List<ThanhToan> _payments = [];
-    private readonly List<CollectionTask> _tasks = [];
-    private readonly List<NotificationLog> _notifications = [];
-    private readonly List<AuditLog> _auditLogs = [];
-    private readonly ConcurrentDictionary<string, Guid> _tenantAliases = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly object SeedLock = new();
+    private static readonly List<CollectionTask> Tasks = [];
+    private static readonly List<NotificationLog> Notifications = [];
+    private static readonly List<AuditLog> AuditLogs = [];
+    private static readonly ConcurrentDictionary<string, Guid> TenantAliases = new(StringComparer.OrdinalIgnoreCase);
 
     public DebtManagementService(
         ApplicationDbContext context,
@@ -30,17 +25,22 @@ public class DebtManagementService : IDebtManagementService
     {
         _context = context;
         _jwtTokenService = jwtTokenService;
+        EnsureSeeded();
     }
+
     public Guid DefaultTenantId =>
-        _tenants.FirstOrDefault()?.Id ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
+        _context.Tenants.Select(t => t.Id).FirstOrDefault() is var id && id != Guid.Empty
+            ? id
+            : Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     public Guid ResolveTenant(string? tenantId)
     {
-        if (Guid.TryParse(tenantId, out var parsed) && _tenants.Any(t => t.Id == parsed))
+        if (Guid.TryParse(tenantId, out var parsed) && _context.Tenants.Any(t => t.Id == parsed))
         {
             return parsed;
         }
 
-        if (!string.IsNullOrWhiteSpace(tenantId) && _tenantAliases.TryGetValue(tenantId, out var alias))
+        if (!string.IsNullOrWhiteSpace(tenantId) && TenantAliases.TryGetValue(tenantId, out var alias))
         {
             return alias;
         }
@@ -48,10 +48,11 @@ public class DebtManagementService : IDebtManagementService
         return DefaultTenantId;
     }
 
-    public IReadOnlyCollection<Tenant> GetTenants() => _tenants;
+    public IReadOnlyCollection<Tenant> GetTenants() =>
+        _context.Tenants.OrderBy(t => t.Name).ToArray();
 
     public IReadOnlyCollection<AppUser> GetUsers(Guid tenantId) =>
-        _users
+        _context.Users
             .Where(u => u.TenantId == tenantId || u.Role == UserRole.SuperAdmin)
             .OrderBy(u => u.Role)
             .ThenBy(u => u.FullName)
@@ -61,60 +62,61 @@ public class DebtManagementService : IDebtManagementService
     {
         ValidateUserRequest(tenantId, request.FullName, request.Email, request.Role);
 
-        var user = new AppUser(Guid.NewGuid(), tenantId, request.FullName.Trim(), request.Email.Trim(), request.Role, request.IsActive);
-        _users.Add(user);
+        var user = new AppUser(Guid.NewGuid(), tenantId, request.FullName.Trim(), request.Email.Trim(), request.Role, request.IsActive)
+        {
+            PasswordHash = PasswordHasher.Hash("123456")
+        };
+        _context.Users.Add(user);
+        _context.SaveChanges();
         AddAudit(tenantId, "TenantAdmin", "Create", "User");
         return user;
     }
 
     public AppUser UpdateUser(Guid tenantId, Guid userId, UpdateUserRequest request)
     {
-        var index = _users.FindIndex(u => u.Id == userId && u.TenantId == tenantId);
-        if (index < 0)
-        {
-            throw new InvalidOperationException("Nguoi dung khong ton tai.");
-        }
+        var current = _context.Users.FirstOrDefault(u => u.Id == userId && u.TenantId == tenantId)
+            ?? throw new InvalidOperationException("Nguoi dung khong ton tai.");
 
         ValidateUserRequest(tenantId, request.FullName, request.Email, request.Role, userId);
 
-        var current = _users[index];
-        var updated = new AppUser
-        {
-            Id = current.Id,
-            TenantId = current.TenantId,
-            FullName = request.FullName.Trim(),
-            Email = request.Email.Trim(),
-            Role = request.Role,
-            IsActive = request.IsActive,
-            PasswordHash = current.PasswordHash
-        };
-        _users[index] = updated;
+        current.FullName = request.FullName.Trim();
+        current.Email = request.Email.Trim();
+        current.Role = request.Role;
+        current.IsActive = request.IsActive;
+        _context.SaveChanges();
         AddAudit(tenantId, "TenantAdmin", "Update", "User");
-        return updated;
+        return current;
     }
 
     public void DeleteUser(Guid tenantId, Guid userId)
     {
-        var user = _users.FirstOrDefault(u => u.Id == userId && u.TenantId == tenantId)
+        var user = _context.Users.FirstOrDefault(u => u.Id == userId && u.TenantId == tenantId)
             ?? throw new InvalidOperationException("Nguoi dung khong ton tai.");
 
-        if (_tasks.Any(t => t.TenantId == tenantId && t.AssignedTo == userId))
+        if (Tasks.Any(t => t.TenantId == tenantId && t.AssignedTo == userId))
         {
             throw new InvalidOperationException("Nguoi dung da duoc gan cong viec, hay khoa tai khoan thay vi xoa.");
         }
 
-        _users.Remove(user);
+        _context.Users.Remove(user);
+        _context.SaveChanges();
         AddAudit(tenantId, "TenantAdmin", "Delete", "User");
     }
 
     public object Login(LoginRequest request)
     {
+        var normalizedEmail = request.Email.Trim().ToLower();
         var user = _context.Users
             .FirstOrDefault(u =>
-                u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase)
+                u.Email.ToLower() == normalizedEmail
                 && u.IsActive);
 
         if (user is null)
+        {
+            throw new InvalidOperationException("Sai tài khoản hoặc mật khẩu.");
+        }
+
+        if (!string.Equals(user.PasswordHash, PasswordHasher.Hash(request.Password), StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Sai tài khoản hoặc mật khẩu.");
         }
@@ -129,7 +131,7 @@ public class DebtManagementService : IDebtManagementService
 
             user,
 
-            tenant = _tenants.FirstOrDefault(t => t.Id == user.TenantId)
+            tenant = _context.Tenants.FirstOrDefault(t => t.Id == user.TenantId)
         };
     }
     public IReadOnlyCollection<KhachHang> GetCustomers(Guid tenantId, string? search)
@@ -308,18 +310,18 @@ public class DebtManagementService : IDebtManagementService
 
     public CollectionTask CreateTask(Guid tenantId, CreateTaskRequest request)
     {
-        if (!_debts.Any(d => d.TenantId == tenantId && d.Id == request.DebtId))
+        if (!_context.CongNos.Any(d => d.TenantId == tenantId && d.Id == request.DebtId))
         {
             throw new InvalidOperationException("Khoan no khong ton tai.");
         }
 
-        if (!_users.Any(u => u.TenantId == tenantId && u.Id == request.AssignedTo && u.Role == UserRole.FieldCollector))
+        if (!_context.Users.Any(u => u.TenantId == tenantId && u.Id == request.AssignedTo && u.Role == UserRole.FieldCollector))
         {
             throw new InvalidOperationException("Nhan vien hien truong khong hop le.");
         }
 
         var task = new CollectionTask(Guid.NewGuid(), tenantId, request.DebtId, request.AssignedTo, CollectionTaskStatus.Assigned, request.DueDate, request.Note);
-        _tasks.Add(task);
+        Tasks.Add(task);
         AddAudit(tenantId, "Operator", "Assign", "CollectionTask");
         return task;
     }
@@ -327,16 +329,16 @@ public class DebtManagementService : IDebtManagementService
     public NotificationLog SendReminder(Guid tenantId, Guid debtId, SendReminderRequest request)
     {
         var item =
-            (from debt in _debts
-             join contract in _contracts on debt.ContractId equals contract.Id
-             join customer in _customers on contract.CustomerId equals customer.Id
+            (from debt in _context.CongNos
+             join contract in _context.Contracts on debt.ContractId equals contract.Id
+             join customer in _context.KhachHangs on contract.CustomerId equals customer.Id
              where debt.TenantId == tenantId && debt.Id == debtId
              select new { debt, customer }).FirstOrDefault()
             ?? throw new InvalidOperationException("Khoan no khong ton tai.");
 
         var message = $"Kinh gui {item.customer.Name}, quy khach con du no {item.debt.RemainingAmount:n0} VND, han thanh toan {item.debt.DueDate:dd/MM/yyyy}.";
         var notification = new NotificationLog(Guid.NewGuid(), tenantId, debtId, request.Channel, item.customer.Phone, message, "Sent", DateTime.UtcNow);
-        _notifications.Add(notification);
+        Notifications.Add(notification);
         AddAudit(tenantId, "Operator", "SendReminder", "Notification");
         return notification;
     }
@@ -347,10 +349,10 @@ public class DebtManagementService : IDebtManagementService
             .OrderByDescending(p => p.PaidAt)
             .ToArray();
     public IReadOnlyCollection<NotificationLog> GetNotifications(Guid tenantId) =>
-        _notifications.Where(n => n.TenantId == tenantId).OrderByDescending(n => n.SentAt).ToArray();
+        Notifications.Where(n => n.TenantId == tenantId).OrderByDescending(n => n.SentAt).ToArray();
 
     public IReadOnlyCollection<AuditLog> GetAuditLogs(Guid tenantId) =>
-        _auditLogs.Where(a => a.TenantId == tenantId).OrderByDescending(a => a.Timestamp).Take(50).ToArray();
+        AuditLogs.Where(a => a.TenantId == tenantId).OrderByDescending(a => a.Timestamp).Take(50).ToArray();
 
     public object GetDashboard(Guid tenantId)
     {
@@ -438,15 +440,17 @@ public class DebtManagementService : IDebtManagementService
     }
     private void RefreshDebtStatuses()
     {
-        foreach (var debt in _debts)
+        foreach (var debt in _context.CongNos)
         {
             debt.RefreshStatus();
         }
+
+        _context.SaveChanges();
     }
 
     private void AddAudit(Guid tenantId, string userName, string action, string entity)
     {
-        _auditLogs.Add(new AuditLog(Guid.NewGuid(), tenantId, userName, action, entity, DateTime.UtcNow, "127.0.0.1"));
+        AuditLogs.Add(new AuditLog(Guid.NewGuid(), tenantId, userName, action, entity, DateTime.UtcNow, "127.0.0.1"));
     }
 
     private void ValidateUserRequest(Guid tenantId, string fullName, string email, UserRole role, Guid? userId = null)
@@ -466,25 +470,46 @@ public class DebtManagementService : IDebtManagementService
             throw new InvalidOperationException("Khong the tao hoac sua SuperAdmin tu man hinh tenant.");
         }
 
-        if (_users.Any(u =>
+        var normalizedEmail = email.Trim().ToLower();
+        if (_context.Users.Any(u =>
                 u.TenantId == tenantId &&
                 u.Id != userId &&
-                u.Email.Equals(email.Trim(), StringComparison.OrdinalIgnoreCase)))
+                u.Email.ToLower() == normalizedEmail))
         {
             throw new InvalidOperationException("Email da ton tai trong tenant.");
         }
     }
 
-    private void Seed()
+    private void EnsureSeeded()
     {
+        TenantAliases["demo"] = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+        if (_context.Tenants.Any())
+        {
+            return;
+        }
+
+        lock (SeedLock)
+        {
+            if (_context.Tenants.Any())
+            {
+                return;
+            }
+
         var tenant = new Tenant(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Cong ty Tai chinh Pacific", "Pro", TenantStatus.Active, DateTime.UtcNow.AddMonths(-6));
-        _tenants.Add(tenant);
-        _tenantAliases["demo"] = tenant.Id;
+        _context.Tenants.Add(tenant);
 
         var operatorUser = new AppUser(Guid.NewGuid(), tenant.Id, "Le Dinh Anh Tuan", "operator@demo.vn", UserRole.Operator, true);
         var adminUser = new AppUser(Guid.NewGuid(), tenant.Id, "Quan tri Tenant", "admin@demo.vn", UserRole.TenantAdmin, true);
         var collector = new AppUser(Guid.NewGuid(), tenant.Id, "Nguyen Van Field", "field@demo.vn", UserRole.FieldCollector, true);
-        _users.AddRange([operatorUser, adminUser, collector, new AppUser(Guid.NewGuid(), tenant.Id, "Khach hang Demo", "customer@demo.vn", UserRole.Customer, true)]);
+        var customerUser = new AppUser(Guid.NewGuid(), tenant.Id, "Khach hang Demo", "customer@demo.vn", UserRole.Customer, true);
+
+        foreach (var user in new[] { operatorUser, adminUser, collector, customerUser })
+        {
+            user.PasswordHash = PasswordHasher.Hash("123456");
+        }
+
+        _context.Users.AddRange(operatorUser, adminUser, collector, customerUser);
 
         var customers = new[]
         {
@@ -493,11 +518,13 @@ public class DebtManagementService : IDebtManagementService
             new KhachHang { Id = Guid.NewGuid(), TenantId = tenant.Id, Name = "Pham Minh Chau", Phone = "0901000003", Address = "Dien Khanh, Khanh Hoa", CitizenId = "056201000003", RiskScore = 66 },
             new KhachHang { Id = Guid.NewGuid(), TenantId = tenant.Id, Name = "Hoang Gia Huy", Phone = "0901000004", Address = "Van Ninh, Khanh Hoa", CitizenId = "056201000004", RiskScore = 24 }
         };
-        _customers.AddRange(customers);
+        _context.KhachHangs.AddRange(customers);
+
+        var contracts = new List<DomainContract>();
 
         foreach (var customer in customers)
         {
-            _contracts.Add(new DomainContract
+            contracts.Add(new DomainContract
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenant.Id,
@@ -511,18 +538,38 @@ public class DebtManagementService : IDebtManagementService
             });
         }
 
+        _context.Contracts.AddRange(contracts);
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var contractList = _contracts.ToArray();
-        _debts.AddRange([
+        var contractList = contracts.ToArray();
+        var debts = new[]
+        {
             NewDebt(tenant.Id, contractList[0].Id, 28_000_000m, today.AddDays(-15), "Qua han can uu tien goi dien"),
             NewDebt(tenant.Id, contractList[1].Id, 15_500_000m, today.AddDays(3), "Sap den han D-3"),
             NewDebt(tenant.Id, contractList[2].Id, 42_000_000m, today.AddDays(-34), "Rui ro cao, can giao field collector"),
             NewDebt(tenant.Id, contractList[3].Id, 9_800_000m, today.AddDays(18), "Dang theo doi")
-        ]);
+        };
 
-        AddPayment(tenant.Id, _debts[1].Id, new CreatePaymentRequest(5_000_000m, PhuongThucThanhToan.BankTransfer, operatorUser.FullName));
-        _tasks.Add(new CollectionTask(Guid.NewGuid(), tenant.Id, _debts[2].Id, collector.Id, CollectionTaskStatus.Assigned, today.AddDays(1), "Gap khach va xac minh kha nang thanh toan."));
-        SendReminder(tenant.Id, _debts[0].Id, new SendReminderRequest("SMS"));
+        _context.CongNos.AddRange(debts);
+
+        debts[1].ApplyPayment(5_000_000m);
+        _context.ThanhToans.Add(new ThanhToan
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant.Id,
+            DebtId = debts[1].Id,
+            Amount = 5_000_000m,
+            Method = PhuongThucThanhToan.BankTransfer,
+            PaidAt = DateTime.UtcNow,
+            ReceivedBy = operatorUser.FullName
+        });
+
+        _context.SaveChanges();
+
+        Tasks.Add(new CollectionTask(Guid.NewGuid(), tenant.Id, debts[2].Id, collector.Id, CollectionTaskStatus.Assigned, today.AddDays(1), "Gap khach va xac minh kha nang thanh toan."));
+        Notifications.Add(new NotificationLog(Guid.NewGuid(), tenant.Id, debts[0].Id, "SMS", customers[0].Phone, $"Kinh gui {customers[0].Name}, quy khach con du no {debts[0].RemainingAmount:n0} VND, han thanh toan {debts[0].DueDate:dd/MM/yyyy}.", "Sent", DateTime.UtcNow));
+        AddAudit(tenant.Id, "System", "Seed", "DemoData");
+        }
     }
 
     private static CongNo NewDebt(Guid tenantId, Guid contractId, decimal amount, DateOnly dueDate, string note)
