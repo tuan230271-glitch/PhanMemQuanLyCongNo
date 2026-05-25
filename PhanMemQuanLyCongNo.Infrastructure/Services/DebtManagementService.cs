@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using TaskStatus = PhanMemQuanLyCongNo.Application.Models.CollectionTaskStatus;
 using PhanMemQuanLyCongNo.Application.Abstractions;
 using PhanMemQuanLyCongNo.Application.Models;
 using PhanMemQuanLyCongNo.Domain.Entities;
@@ -137,8 +138,7 @@ public class DebtManagementService : IDebtManagementService
     public IReadOnlyCollection<KhachHang> GetCustomers(Guid tenantId, string? search)
     {
         var query = _context.KhachHangs
-            .Where(c => c.TenantId == tenantId);
-
+            .Where(c => c.TenantId == tenantId && !c.IsDeleted);
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = query.Where(c =>
@@ -150,6 +150,11 @@ public class DebtManagementService : IDebtManagementService
         return query
             .OrderByDescending(c => c.RiskScore)
             .ToArray();
+    }
+    public KhachHang? GetCustomerById(Guid tenantId, Guid customerId)
+    {
+        return _context.KhachHangs
+           .FirstOrDefault(c => c.TenantId == tenantId && c.Id == customerId && !c.IsDeleted);
     }
     public KhachHang CreateCustomer(Guid tenantId, CreateCustomerRequest request)
     {
@@ -166,6 +171,51 @@ public class DebtManagementService : IDebtManagementService
         _context.KhachHangs.Add(customer);
         _context.SaveChanges(); AddAudit(tenantId, "Operator", "Create", "Customer");
         return customer;
+    }
+
+    public KhachHang UpdateCustomer(Guid tenantId, Guid customerId, UpdateCustomerRequest request)
+    {
+        var customer = _context.KhachHangs
+            .FirstOrDefault(c => c.TenantId == tenantId && c.Id == customerId)
+            ?? throw new InvalidOperationException("Khach hang khong ton tai.");
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new InvalidOperationException("Ten khach hang la bat buoc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Phone))
+        {
+            throw new InvalidOperationException("So dien thoai la bat buoc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CitizenId))
+        {
+            throw new InvalidOperationException("CCCD/CMND la bat buoc.");
+        }
+
+        customer.Name = request.Name.Trim();
+        customer.Phone = request.Phone.Trim();
+        customer.Address = request.Address.Trim();
+        customer.CitizenId = request.CitizenId.Trim();
+
+        _context.SaveChanges();
+
+        AddAudit(tenantId, "Operator", "Update", "Customer");
+
+        return customer;
+    }
+    public void DeleteCustomer(Guid tenantId, Guid customerId)
+    {
+        var customer = _context.KhachHangs
+            .FirstOrDefault(c => c.TenantId == tenantId && c.Id == customerId && !c.IsDeleted)
+            ?? throw new InvalidOperationException("Khach hang khong ton tai.");
+
+        customer.IsDeleted = true;
+
+        _context.SaveChanges();
+
+        AddAudit(tenantId, "Operator", "Delete", "Customer");
     }
 
     public IReadOnlyCollection<DomainContract> GetContracts(Guid tenantId) =>
@@ -237,6 +287,41 @@ public class DebtManagementService : IDebtManagementService
             })
             .ToArray();
     }
+    public object? GetDebtById(Guid tenantId, Guid debtId)
+    {
+        var item =
+            (from debt in _context.CongNos
+             join contract in _context.Contracts on debt.ContractId equals contract.Id
+             join customer in _context.KhachHangs on contract.CustomerId equals customer.Id
+             where debt.TenantId == tenantId && debt.Id == debtId
+             select new
+             {
+                 debt.Id,
+                 ContractId = contract.Id,
+                 ContractCode = contract.Code,
+                 CustomerId = customer.Id,
+                 CustomerName = customer.Name,
+                 customer.Phone,
+                 customer.Address,
+                 customer.CitizenId,
+                 customer.RiskScore,
+                 debt.PrincipalAmount,
+                 debt.PenaltyAmount,
+                 debt.ReminderFee,
+                 debt.TotalAmount,
+                 debt.PaidAmount,
+                 debt.RemainingAmount,
+                 debt.IssuedDate,
+                 debt.DueDate,
+                 debt.OverdueDays,
+                 debt.Status,
+                 debt.Note
+             })
+            .FirstOrDefault();
+
+        return item;
+    }
+
     public CongNo CreateDebt(Guid tenantId, CreateDebtRequest request)
     {
         var contractExists = _context.Contracts.Any(c =>
@@ -269,6 +354,20 @@ public class DebtManagementService : IDebtManagementService
         _context.SaveChanges();
 
         AddAudit(tenantId, "Operator", "Create", "Debt");
+
+        return debt;
+    }
+
+    public CongNo UpdateDebtStatus(Guid tenantId, Guid debtId, UpdateDebtStatusRequest request)
+    {
+        var debt = _context.CongNos
+            .FirstOrDefault(d => d.TenantId == tenantId && d.Id == debtId)
+            ?? throw new InvalidOperationException("Khoan no khong ton tai.");
+
+        debt.Status = request.Status.ToString();
+        _context.SaveChanges();
+
+        AddAudit(tenantId, "Operator", "UpdateStatus", "Debt");
 
         return debt;
     }
@@ -320,12 +419,57 @@ public class DebtManagementService : IDebtManagementService
             throw new InvalidOperationException("Nhan vien hien truong khong hop le.");
         }
 
-        var task = new CollectionTask(Guid.NewGuid(), tenantId, request.DebtId, request.AssignedTo, CollectionTaskStatus.Assigned, request.DueDate, request.Note);
+        var task = new CollectionTask(
+            Guid.NewGuid(),
+            tenantId,
+            request.DebtId,
+            request.AssignedTo,
+            TaskStatus.Assigned,
+            request.DueDate,
+            request.Note ?? ""
+        );
         Tasks.Add(task);
+
         AddAudit(tenantId, "Operator", "Assign", "CollectionTask");
+
         return task;
     }
+    public IReadOnlyCollection<CollectionTask> GetTasks(Guid tenantId)
+    {
+        return Tasks
+            .Where(t => t.TenantId == tenantId)
+            .OrderByDescending(t => t.DueDate)
+            .ToArray();
+    }
 
+    public CollectionTask? GetTaskById(Guid tenantId, Guid taskId)
+    {
+        return Tasks
+            .FirstOrDefault(t => t.TenantId == tenantId && t.Id == taskId);
+    }
+
+    public CollectionTask UpdateTaskStatus(Guid tenantId, Guid taskId, UpdateTaskStatusRequest request)
+    {
+        var index = Tasks.FindIndex(t => t.TenantId == tenantId && t.Id == taskId);
+
+        if (index < 0)
+        {
+            throw new InvalidOperationException("Cong viec thu hoi no khong ton tai.");
+        }
+
+        var currentTask = Tasks[index];
+
+        var updatedTask = currentTask with
+        {
+            Status = request.Status
+        };
+
+        Tasks[index] = updatedTask;
+
+        AddAudit(tenantId, "Operator", "UpdateStatus", "CollectionTask");
+
+        return updatedTask;
+    }
     public NotificationLog SendReminder(Guid tenantId, Guid debtId, SendReminderRequest request)
     {
         var item =
@@ -566,7 +710,15 @@ public class DebtManagementService : IDebtManagementService
 
         _context.SaveChanges();
 
-        Tasks.Add(new CollectionTask(Guid.NewGuid(), tenant.Id, debts[2].Id, collector.Id, CollectionTaskStatus.Assigned, today.AddDays(1), "Gap khach va xac minh kha nang thanh toan."));
+            Tasks.Add(new CollectionTask(
+                Guid.NewGuid(),
+                tenant.Id,
+                debts[2].Id,
+                collector.Id,
+                TaskStatus.Assigned,
+                today.AddDays(1),
+                "Gap khach va xac minh kha nang thanh toan."
+            ));
         Notifications.Add(new NotificationLog(Guid.NewGuid(), tenant.Id, debts[0].Id, "SMS", customers[0].Phone, $"Kinh gui {customers[0].Name}, quy khach con du no {debts[0].RemainingAmount:n0} VND, han thanh toan {debts[0].DueDate:dd/MM/yyyy}.", "Sent", DateTime.UtcNow));
         AddAudit(tenant.Id, "System", "Seed", "DemoData");
         }

@@ -35,6 +35,23 @@ public sealed class DebtsController(IDebtManagementService service) : Controller
         return Ok(debts);
     }
 
+    [HttpGet("{debtId:guid}")]
+    public IActionResult GetDebtById(Guid debtId)
+    {
+        var tenantId = GetTenantId();
+
+        var debt = service.GetDebtById(tenantId, debtId);
+
+        if (debt == null)
+        {
+            return NotFound(new
+            {
+                message = "Không tìm thấy khoản công nợ."
+            });
+        }
+
+        return Ok(debt);
+    }
     [HttpPost]
     public IActionResult CreateDebt(CreateDebtRequest request)
     {
@@ -85,6 +102,26 @@ public sealed class DebtsController(IDebtManagementService service) : Controller
             var notification = service.SendReminder(tenantId, debtId, request);
 
             return Created("", notification);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                error = ex.Message
+            });
+        }
+    }
+
+    [HttpPatch("{debtId:guid}/status")]
+    public IActionResult UpdateDebtStatus(Guid debtId, UpdateDebtStatusRequest request)
+    {
+        try
+        {
+            var tenantId = GetTenantId();
+
+            var debt = service.UpdateDebtStatus(tenantId, debtId, request);
+
+            return Ok(debt);
         }
         catch (InvalidOperationException ex)
         {

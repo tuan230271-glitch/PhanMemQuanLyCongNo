@@ -10,6 +10,34 @@ namespace PhanMemQuanLyCongNo.Controllers;
 [Authorize]
 public sealed class TasksController(IDebtManagementService service) : ControllerBase
 {
+    [HttpGet]
+    public IActionResult GetTasks()
+    {
+        var tenantId = GetTenantId();
+
+        var tasks = service.GetTasks(tenantId);
+
+        return Ok(tasks);
+    }
+
+    [HttpGet("{taskId:guid}")]
+    public IActionResult GetTaskById(Guid taskId)
+    {
+        var tenantId = GetTenantId();
+
+        var task = service.GetTaskById(tenantId, taskId);
+
+        if (task == null)
+        {
+            return NotFound(new
+            {
+                message = "Không tìm thấy công việc thu hồi nợ."
+            });
+        }
+
+        return Ok(task);
+    }
+
     [HttpPost]
     public IActionResult CreateTask(CreateTaskRequest request)
     {
@@ -20,6 +48,26 @@ public sealed class TasksController(IDebtManagementService service) : Controller
             var task = service.CreateTask(tenantId, request);
 
             return Created("", task);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                error = ex.Message
+            });
+        }
+    }
+
+    [HttpPatch("{taskId:guid}/status")]
+    public IActionResult UpdateTaskStatus(Guid taskId, UpdateTaskStatusRequest request)
+    {
+        try
+        {
+            var tenantId = GetTenantId();
+
+            var task = service.UpdateTaskStatus(tenantId, taskId, request);
+
+            return Ok(task);
         }
         catch (InvalidOperationException ex)
         {

@@ -12,4 +12,5 @@ public class KhachHang
     public string CitizenId { get; set; } = string.Empty;
     public int RiskScore { get; set; }
     public string TrangThai { get; set; } = TrangThaiKhachHang.DangHoatDong;
+    public bool IsDeleted { get; set; } = false;
 }
