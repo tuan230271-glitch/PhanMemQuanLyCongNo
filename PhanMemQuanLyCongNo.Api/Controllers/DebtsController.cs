@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PhanMemQuanLyCongNo.Application.Abstractions;
-using PhanMemQuanLyCongNo.Application.Models;
+using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Add_Payment;
+using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Create;
+using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Send_Reminder;
+using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Update_Status;
 
 namespace PhanMemQuanLyCongNo.Controllers;
 

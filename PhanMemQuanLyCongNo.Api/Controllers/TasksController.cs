@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PhanMemQuanLyCongNo.Application.Abstractions;
-using PhanMemQuanLyCongNo.Application.Models;
+using PhanMemQuanLyCongNo.Application.Features.Tasks.Commands.Create;
+using PhanMemQuanLyCongNo.Application.Features.Tasks.Commands.Update_Status;
 
 namespace PhanMemQuanLyCongNo.Controllers;
 

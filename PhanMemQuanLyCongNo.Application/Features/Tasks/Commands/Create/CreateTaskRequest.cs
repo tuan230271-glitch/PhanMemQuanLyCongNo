@@ -1,4 +1,4 @@
-namespace PhanMemQuanLyCongNo.Application.Models;
+namespace PhanMemQuanLyCongNo.Application.Features.Tasks.Commands.Create;
 
 public sealed record CreateTaskRequest(
     Guid DebtId,

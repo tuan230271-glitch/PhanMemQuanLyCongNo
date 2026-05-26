@@ -10,4 +10,15 @@
     <ProjectReference Include="..\PhanMemQuanLyCongNo.Domain\PhanMemQuanLyCongNo.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Customers\Commands\Delete\" />
+    <Folder Include="Features\Customers\Queries\Get_By_Id\" />
+    <Folder Include="Features\Customers\Queries\Get_List\" />
+    <Folder Include="Features\Debts\Queries\Get_By_Id\" />
+    <Folder Include="Features\Debts\Queries\Get_List\" />
+    <Folder Include="Features\Tasks\Queries\Get_By_Id\" />
+    <Folder Include="Features\Tasks\Queries\Get_List\" />
+    <Folder Include="Features\Users\Queries\Get_List\" />
+  </ItemGroup>
+
 </Project>

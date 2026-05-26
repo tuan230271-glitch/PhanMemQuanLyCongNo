@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PhanMemQuanLyCongNo.Application.Abstractions;
-using PhanMemQuanLyCongNo.Application.Models;
+using PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Update;
 using PhanMemQuanLyCongNo.Infrastructure.Services;
+using PhanMemQuanLyCongNo.Application.Models;
 
-namespace PhanMemQuanLyCongNo.Controllers;
+namespace PhanMemQuanLyCongNo.Application.Models;
 
 [ApiController]
 [Route("api/customers")]

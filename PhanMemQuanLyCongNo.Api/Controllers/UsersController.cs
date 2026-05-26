@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PhanMemQuanLyCongNo.Application.Abstractions;
-using PhanMemQuanLyCongNo.Application.Models;
+using PhanMemQuanLyCongNo.Application.Features.Users.Commands.Create;
+using PhanMemQuanLyCongNo.Application.Features.Users.Commands.Update;
 
 namespace PhanMemQuanLyCongNo.Controllers;
 

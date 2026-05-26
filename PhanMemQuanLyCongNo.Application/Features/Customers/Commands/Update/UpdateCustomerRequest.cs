@@ -1,4 +1,4 @@
-﻿namespace PhanMemQuanLyCongNo.Application.Models;
+﻿namespace PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Update;
 
 public sealed record UpdateCustomerRequest(
     string Name,
