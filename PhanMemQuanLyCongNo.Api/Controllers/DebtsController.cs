@@ -1,20 +1,19 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PhanMemQuanLyCongNo.Application.Abstractions;
-using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Add_Payment;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Send_Reminder;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Update_Status;
+using PhanMemQuanLyCongNo.Application.Features.Payments.Commands.Create;
 
 namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api/debts")]
-[Authorize]
+[Authorize(Roles = "TenantAdmin,Operator,Customer")]
 public sealed class DebtsController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet]
-    [AllowAnonymous]
     public IActionResult GetDebts(
         [FromQuery] string? search,
         [FromQuery] string? status,
@@ -56,6 +55,7 @@ public sealed class DebtsController(IDebtManagementService service) : Controller
         return Ok(debt);
     }
     [HttpPost]
+    [Authorize(Roles = "TenantAdmin,Operator")]
     public IActionResult CreateDebt(CreateDebtRequest request)
     {
         try
@@ -76,6 +76,7 @@ public sealed class DebtsController(IDebtManagementService service) : Controller
     }
 
     [HttpPost("{debtId:guid}/payments")]
+    [Authorize(Roles = "TenantAdmin,Operator")]
     public IActionResult AddPayment(Guid debtId, CreatePaymentRequest request)
     {
         try
@@ -96,6 +97,7 @@ public sealed class DebtsController(IDebtManagementService service) : Controller
     }
 
     [HttpPost("{debtId:guid}/reminders")]
+    [Authorize(Roles = "TenantAdmin,Operator")]
     public IActionResult SendReminder(Guid debtId, SendReminderRequest request)
     {
         try
@@ -116,6 +118,7 @@ public sealed class DebtsController(IDebtManagementService service) : Controller
     }
 
     [HttpPatch("{debtId:guid}/status")]
+    [Authorize(Roles = "TenantAdmin,Operator")]
     public IActionResult UpdateDebtStatus(Guid debtId, UpdateDebtStatusRequest request)
     {
         try

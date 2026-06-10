@@ -8,7 +8,7 @@ namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api/tasks")]
-[Authorize]
+[Authorize(Roles = "TenantAdmin,Operator,FieldCollector")]
 public sealed class TasksController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet]
@@ -40,6 +40,7 @@ public sealed class TasksController(IDebtManagementService service) : Controller
     }
 
     [HttpPost]
+    [Authorize(Roles = "TenantAdmin,Operator")]
     public IActionResult CreateTask(CreateTaskRequest request)
     {
         try
@@ -60,6 +61,7 @@ public sealed class TasksController(IDebtManagementService service) : Controller
     }
 
     [HttpPatch("{taskId:guid}/status")]
+    [Authorize(Roles = "Operator,FieldCollector")]
     public IActionResult UpdateTaskStatus(Guid taskId, UpdateTaskStatusRequest request)
     {
         try

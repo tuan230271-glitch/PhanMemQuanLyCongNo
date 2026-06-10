@@ -6,11 +6,10 @@ namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api/contracts")]
-[Authorize]
+[Authorize(Roles = "TenantAdmin,Operator")]
 public sealed class ContractsController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet]
-    [AllowAnonymous]
     public IActionResult GetContracts()
     {
         var tenantId = GetTenantId();

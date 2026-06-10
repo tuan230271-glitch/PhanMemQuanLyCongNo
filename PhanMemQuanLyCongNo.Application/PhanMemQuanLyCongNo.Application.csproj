@@ -11,13 +11,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Features\AuditLogs\Queries\Get_List\" />
+    <Folder Include="Features\Contracts\Queries\Get_List\" />
     <Folder Include="Features\Customers\Commands\Delete\" />
     <Folder Include="Features\Customers\Queries\Get_By_Id\" />
     <Folder Include="Features\Customers\Queries\Get_List\" />
+    <Folder Include="Features\Dashboard\Queries\Get_Summary\" />
     <Folder Include="Features\Debts\Queries\Get_By_Id\" />
     <Folder Include="Features\Debts\Queries\Get_List\" />
+    <Folder Include="Features\Notifications\Queries\Get_List\" />
+    <Folder Include="Features\Payments\Queries\Get_List\" />
     <Folder Include="Features\Tasks\Queries\Get_By_Id\" />
     <Folder Include="Features\Tasks\Queries\Get_List\" />
+    <Folder Include="Features\Tenants\Queries\Get_List\" />
     <Folder Include="Features\Users\Queries\Get_List\" />
   </ItemGroup>
 

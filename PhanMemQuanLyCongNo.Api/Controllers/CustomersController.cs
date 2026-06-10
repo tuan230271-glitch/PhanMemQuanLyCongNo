@@ -1,19 +1,17 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PhanMemQuanLyCongNo.Application.Abstractions;
+using PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Update;
-using PhanMemQuanLyCongNo.Infrastructure.Services;
-using PhanMemQuanLyCongNo.Application.Models;
 
-namespace PhanMemQuanLyCongNo.Application.Models;
+namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api/customers")]
-[Authorize]
+[Authorize(Roles = "TenantAdmin,Operator")]
 public sealed class CustomersController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet]
-    [AllowAnonymous]
     public IActionResult GetCustomers([FromQuery] string? search)
     {
         var tenantId = GetTenantId();
@@ -24,7 +22,6 @@ public sealed class CustomersController(IDebtManagementService service) : Contro
     }
 
     [HttpGet("{customerId:guid}")]
-    [AllowAnonymous]
     public IActionResult GetById(Guid customerId)
     {
         var tenantId = GetTenantId();

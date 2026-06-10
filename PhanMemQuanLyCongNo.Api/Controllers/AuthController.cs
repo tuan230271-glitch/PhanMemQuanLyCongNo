@@ -1,6 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PhanMemQuanLyCongNo.Application.Abstractions;
-using PhanMemQuanLyCongNo.Application.Features.Auth.Commands.Login;
 using PhanMemQuanLyCongNo.Application.Models;
 
 namespace PhanMemQuanLyCongNo.Controllers;
@@ -23,5 +23,21 @@ public sealed class AuthController(IDebtManagementService service) : ControllerB
                 error = ex.Message
             });
         }
+    }
+
+    [HttpGet("me")]
+    [Authorize]
+    public IActionResult Me()
+    {
+        return Ok(new
+        {
+            message = "Token hợp lệ",
+            user = User.Identity?.Name,
+            claims = User.Claims.Select(c => new
+            {
+                c.Type,
+                c.Value
+            })
+        });
     }
 }

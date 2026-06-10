@@ -5,6 +5,7 @@ using Microsoft.OpenApi;
 using PhanMemQuanLyCongNo.Application.Abstractions;
 using PhanMemQuanLyCongNo.Infrastructure.Persistence.DbContext;
 using PhanMemQuanLyCongNo.Infrastructure.Services;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -42,9 +43,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!)),
+            RoleClaimType = ClaimTypes.Role
         };
     });
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(); 

@@ -1,4 +1,4 @@
-namespace PhanMemQuanLyCongNo.Application.Models;
+namespace PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Create;
 
 public sealed record CreateCustomerRequest(
     string Name,

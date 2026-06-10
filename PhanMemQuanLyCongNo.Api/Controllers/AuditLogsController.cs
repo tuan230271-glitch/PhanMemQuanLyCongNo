@@ -6,7 +6,7 @@ namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api/audit-logs")]
-[Authorize]
+[Authorize(Roles = "SuperAdmin,TenantAdmin")]
 public sealed class AuditLogsController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet]

@@ -1,9 +1,10 @@
-using PhanMemQuanLyCongNo.Application.Features.Auth.Commands.Login;
+using PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Update;
-using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Add_Payment;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Send_Reminder;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Update_Status;
+using PhanMemQuanLyCongNo.Application.Features.Payments.Commands.Create;
+using PhanMemQuanLyCongNo.Application.Features.Payments.Commands.Update;
 using PhanMemQuanLyCongNo.Application.Features.Tasks.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Tasks.Commands.Update_Status;
 using PhanMemQuanLyCongNo.Application.Features.Users.Commands.Create;
@@ -35,6 +36,7 @@ public interface IDebtManagementService
     CongNo CreateDebt(Guid tenantId, CreateDebtRequest request);
     CongNo UpdateDebtStatus(Guid tenantId, Guid debtId, UpdateDebtStatusRequest request);
     ThanhToan AddPayment(Guid tenantId, Guid debtId, CreatePaymentRequest request);
+    ThanhToan UpdatePayment(Guid tenantId, Guid paymentId, UpdatePaymentRequest request);
     CollectionTask CreateTask(Guid tenantId, CreateTaskRequest request);
     IReadOnlyCollection<CollectionTask> GetTasks(Guid tenantId);
     CollectionTask? GetTaskById(Guid tenantId, Guid taskId);

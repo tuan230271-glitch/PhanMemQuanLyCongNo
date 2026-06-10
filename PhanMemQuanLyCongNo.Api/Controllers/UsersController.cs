@@ -8,11 +8,10 @@ namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api/users")]
-[Authorize]
+[Authorize(Roles = "SuperAdmin,TenantAdmin")]
 public sealed class UsersController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet]
-    [AllowAnonymous]
     public IActionResult GetUsers()
     {
         var tenantId = GetTenantId();

@@ -6,11 +6,10 @@ namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api/dashboard")]
-[Authorize]
+[Authorize(Roles = "SuperAdmin,TenantAdmin,Operator")]
 public sealed class DashboardController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet]
-    [AllowAnonymous]
     public IActionResult GetDashboard()
     {
         var tenantId = service.ResolveTenant(

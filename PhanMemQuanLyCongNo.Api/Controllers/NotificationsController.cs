@@ -6,11 +6,10 @@ namespace PhanMemQuanLyCongNo.Controllers;
 
 [ApiController]
 [Route("api/notifications")]
-[Authorize]
+[Authorize(Roles = "TenantAdmin,Operator,Customer")]
 public sealed class NotificationsController(IDebtManagementService service) : ControllerBase
 {
     [HttpGet]
-    [AllowAnonymous]
     public IActionResult GetNotifications()
     {
         var tenantId = GetTenantId();

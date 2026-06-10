@@ -7,16 +7,17 @@ using PhanMemQuanLyCongNo.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using PhanMemQuanLyCongNo.Infrastructure.Persistence.DbContext;
 using DomainContract = PhanMemQuanLyCongNo.Domain.Entities.Contract;
+using PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Customers.Commands.Update;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Update_Status;
-using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Add_Payment;
 using PhanMemQuanLyCongNo.Application.Features.Debts.Commands.Send_Reminder;
+using PhanMemQuanLyCongNo.Application.Features.Payments.Commands.Create;
+using PhanMemQuanLyCongNo.Application.Features.Payments.Commands.Update;
 using PhanMemQuanLyCongNo.Application.Features.Tasks.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Tasks.Commands.Update_Status;
 using PhanMemQuanLyCongNo.Application.Features.Users.Commands.Create;
 using PhanMemQuanLyCongNo.Application.Features.Users.Commands.Update;
-using PhanMemQuanLyCongNo.Application.Features.Auth.Commands.Login;
 
 namespace PhanMemQuanLyCongNo.Infrastructure.Services;
 
@@ -413,6 +414,41 @@ public class DebtManagementService : IDebtManagementService
         _context.SaveChanges();
 
         AddAudit(tenantId, request.ReceivedBy, "Create", "Payment");
+
+        return payment;
+    }
+
+    public ThanhToan UpdatePayment(Guid tenantId, Guid paymentId, UpdatePaymentRequest request)
+    {
+        var payment = _context.ThanhToans.FirstOrDefault(p => p.TenantId == tenantId && p.Id == paymentId)
+            ?? throw new InvalidOperationException("Thanh toan khong ton tai.");
+
+        var debt = _context.CongNos.FirstOrDefault(d => d.TenantId == tenantId && d.Id == payment.DebtId)
+            ?? throw new InvalidOperationException("Khoan no khong ton tai.");
+
+        if (request.Amount <= 0)
+        {
+            throw new InvalidOperationException("So tien thanh toan phai lon hon 0.");
+        }
+
+        var availableAmount = debt.RemainingAmount + payment.Amount;
+        if (request.Amount > availableAmount)
+        {
+            throw new InvalidOperationException("So tien thanh toan vuot qua du no.");
+        }
+
+        var amountDelta = request.Amount - payment.Amount;
+        if (amountDelta != 0)
+        {
+            debt.ApplyPayment(amountDelta);
+        }
+
+        payment.Amount = request.Amount;
+        payment.Method = request.Method;
+        payment.ReceivedBy = request.ReceivedBy;
+
+        _context.SaveChanges();
+        AddAudit(tenantId, request.ReceivedBy, "Update", "Payment");
 
         return payment;
     }
